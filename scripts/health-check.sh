@@ -19,36 +19,48 @@ POSTGRES_PORT="${POSTGRES_PORT:-5432}"
 KAFKA_EXT_PORT="${KAFKA_EXTERNAL_PORT:-29092}"
 
 failures=0
+MAX_RETRIES="${MAX_RETRIES:-20}"
+SLEEP_SECONDS="${SLEEP_SECONDS:-3}"
 
-check_http() {
+wait_http() {
   local name="$1"
   local url="$2"
-  if curl -fsS "$url" >/dev/null; then
-    echo -e "${GREEN}OK${NC}  $name ($url)"
-  else
-    echo -e "${RED}FAIL${NC} $name ($url)"
-    failures=$((failures + 1))
-  fi
+  local attempt=1
+  while (( attempt <= MAX_RETRIES )); do
+    if curl -fsS "$url" >/dev/null; then
+      echo -e "${GREEN}OK${NC}  $name ($url)"
+      return 0
+    fi
+    sleep "$SLEEP_SECONDS"
+    attempt=$((attempt + 1))
+  done
+  echo -e "${RED}FAIL${NC} $name ($url)"
+  failures=$((failures + 1))
 }
 
-check_port() {
+wait_port() {
   local name="$1"
   local host="$2"
   local port="$3"
-  if (echo >"/dev/tcp/$host/$port") >/dev/null 2>&1; then
-    echo -e "${GREEN}OK${NC}  $name ($host:$port)"
-  else
-    echo -e "${RED}FAIL${NC} $name ($host:$port)"
-    failures=$((failures + 1))
-  fi
+  local attempt=1
+  while (( attempt <= MAX_RETRIES )); do
+    if (echo >"/dev/tcp/$host/$port") >/dev/null 2>&1; then
+      echo -e "${GREEN}OK${NC}  $name ($host:$port)"
+      return 0
+    fi
+    sleep "$SLEEP_SECONDS"
+    attempt=$((attempt + 1))
+  done
+  echo -e "${RED}FAIL${NC} $name ($host:$port)"
+  failures=$((failures + 1))
 }
 
 echo -e "${YELLOW}Platform health checks...${NC}"
-check_http "Prometheus" "http://localhost:${PROM_PORT}/-/healthy"
-check_http "Grafana" "http://localhost:${GRAFANA_PORT}/api/health"
-check_http "RabbitMQ management" "http://localhost:${RABBIT_PORT}/api/overview"
-check_port "PostgreSQL" "localhost" "${POSTGRES_PORT}"
-check_port "Kafka external listener" "localhost" "${KAFKA_EXT_PORT}"
+wait_http "Prometheus" "http://localhost:${PROM_PORT}/-/healthy"
+wait_http "Grafana" "http://localhost:${GRAFANA_PORT}/api/health"
+wait_http "RabbitMQ management" "http://localhost:${RABBIT_PORT}/api/overview"
+wait_port "PostgreSQL" "localhost" "${POSTGRES_PORT}"
+wait_port "Kafka external listener" "localhost" "${KAFKA_EXT_PORT}"
 
 if [[ "$failures" -eq 0 ]]; then
   echo -e "${GREEN}All checks passed.${NC}"
