@@ -15,6 +15,8 @@ fi
 PROM_PORT="${PROMETHEUS_PORT:-9090}"
 GRAFANA_PORT="${GRAFANA_PORT:-3000}"
 RABBIT_PORT="${RABBITMQ_MANAGEMENT_PORT:-15672}"
+RABBIT_USER="${RABBITMQ_DEFAULT_USER:-guest}"
+RABBIT_PASS="${RABBITMQ_DEFAULT_PASS:-guest}"
 POSTGRES_PORT="${POSTGRES_PORT:-5432}"
 KAFKA_EXT_PORT="${KAFKA_EXTERNAL_PORT:-29092}"
 
@@ -58,7 +60,7 @@ wait_port() {
 echo -e "${YELLOW}Platform health checks...${NC}"
 wait_http "Prometheus" "http://localhost:${PROM_PORT}/-/healthy"
 wait_http "Grafana" "http://localhost:${GRAFANA_PORT}/api/health"
-wait_http "RabbitMQ management" "http://localhost:${RABBIT_PORT}/api/overview"
+wait_http "RabbitMQ management" "http://${RABBIT_USER}:${RABBIT_PASS}@localhost:${RABBIT_PORT}/api/overview"
 wait_port "PostgreSQL" "localhost" "${POSTGRES_PORT}"
 wait_port "Kafka external listener" "localhost" "${KAFKA_EXT_PORT}"
 
